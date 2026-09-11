@@ -1,62 +1,111 @@
-# Automated Dependency & Vulnerability Risk Dashboard
+# DeepRisk Intelligence
 
-Scans a GitHub org's repos, cross-checks dependencies against OSV.dev,
-checks whether vulnerable packages are actually imported by first-party
-code (reachability), scores risk, and shows a prioritized dashboard.
+### Automated Dependency & Vulnerability Risk Analysis
 
-## Quickstart
+DeepRisk Intelligence is a security analysis platform that scans GitHub
+repositories for vulnerable dependencies, checks whether those vulnerabilities
+are actually reachable from first-party code, calculates a risk score, and
+presents the results through a prioritized security dashboard.
 
-```bash
-# 1. Infrastructure
-docker compose up -d db
+The goal is to move beyond simply asking:
 
-# 2. Backend
-cd backend
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-cp ../.env.example .env            # set GITHUB_TOKEN (repo scope: read-only is enough)
-uvicorn app.main:app --reload      # tables auto-create on boot
+> "Is this dependency vulnerable?"
 
-# 3. Trigger a scan
-curl -X POST localhost:8000/api/scan \
-  -H 'Content-Type: application/json' -d '{"github_org": "your-org-name"}'
+and instead answer:
 
-# 4. Frontend
-cd ../frontend && npm install && npm run dev
-# → http://localhost:5173
-```
+> "How much does this vulnerability actually matter to this repository?"
 
-## Running tests
+DeepRisk combines vulnerability severity, code reachability, repository exposure,
+dependency type, and known exploitation status to prioritize the risks that
+deserve attention first.
 
-```bash
-cd backend
-pytest
-```
+---
 
-## Known limitations (deliberate v1 trade-offs)
+## Key Features
 
-- **Version resolution**: unpinned `package.json` ranges without a lockfile
-  fall back to a "floor guess" (`^1.2.3` → `1.2.3`), flagged via
-  `version_source='guess'`. Lockfile parsing currently resolves top-level
-  packages only.
-- **Reachability is import-level (L1)**: zero setup and few false negatives,
-  but "imported somewhere" ≠ "vulnerable function called." Symbol-level
-  diffing (L2) and call-graph analysis (L3) are the upgrade path.
-- **Direct vs. transitive**: v1 reads manifests, so everything is marked
-  direct. Lockfile/SBOM (CycloneDX) parsing would unlock a real dependency
-  graph.
-- **Scans run as in-process background tasks** — swap for Celery/RQ + a job
-  queue before scanning orgs with hundreds of repos; OSV/GitHub responses
-  should also get HTTP caching (ETags) to respect rate limits.
-- **No auth/UI for exposure tiers yet** — set `exposure_tier` via
-  `PATCH /api/repositories/{id}`; it materially changes rankings.
+- **GitHub Organization Scanning**
+  - Discovers repositories within a GitHub organization.
+  - Scans supported dependency manifests.
 
-## Roadmap
+- **Dependency Detection**
+  - Supports JavaScript/Node.js dependencies through `package.json`.
+  - Supports Python dependencies through `requirements.txt`.
+  - Uses lockfiles where available for improved version resolution.
 
-1. ~~Learn Git/GitHub fundamentals hands-on~~
-2. ~~Basic repo scanner + dependency parser~~
-3. ~~CVE matching pipeline~~
-4. ~~Basic dashboard~~
-5. ~~Reachability analysis (AST/static analysis)~~
-6. ~~Risk scoring engine~~
-7. Ongoing: commit hygiene, docs, portfolio polish
+- **Vulnerability Matching**
+  - Cross-checks dependencies against the
+    [OSV.dev](https://osv.dev/) vulnerability database.
+  - Tracks vulnerability identifiers, severity, CVSS scores, and fixed versions.
+
+- **Reachability Analysis**
+  - Checks whether vulnerable packages are actually imported by
+    first-party code.
+  - Distinguishes between vulnerable packages that are used and those that
+    appear to be unused.
+
+- **Risk Scoring**
+  - Calculates a risk score using multiple factors:
+    - CVSS severity
+    - Code reachability
+    - Repository exposure
+    - Direct vs. transitive dependency
+    - Development-only dependencies
+    - Known exploited vulnerabilities
+
+- **Prioritized Risk Tiers**
+
+  | Tier | Meaning |
+  |------|---------|
+  | **P0** | Fix now |
+  | **P1** | Fix this sprint |
+  | **P2** | Backlog |
+  | **P3** | Monitor |
+
+- **Security Dashboard**
+  - Total findings
+  - Critical/high/medium/low severity distribution
+  - Risk-priority distribution
+  - Reachable vulnerability count
+  - Repositories scanned
+  - Filterable vulnerability findings
+
+---
+
+## How It Works
+
+```text
+GitHub Organization
+        │
+        ▼
+Repository Discovery
+        │
+        ▼
+Dependency Extraction
+        │
+        ├── package.json
+        └── requirements.txt
+        │
+        ▼
+Version Resolution
+        │
+        ▼
+OSV.dev Vulnerability Matching
+        │
+        ▼
+Reachability Analysis
+        │
+        ▼
+Risk Scoring
+        │
+        ├── CVSS severity
+        ├── Reachability
+        ├── Repository exposure
+        ├── Direct / transitive
+        ├── Dev / production
+        └── Known exploitation
+        │
+        ▼
+Prioritized Findings
+        │
+        ▼
+DeepRisk Intelligence Dashboard
