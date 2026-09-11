@@ -48,3 +48,10 @@ app = FastAPI(title="Dependency Risk Dashboard", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins,
                    allow_methods=["*"], allow_headers=["*"])
 app.include_router(router)
+
+
+@app.get("/healthz")
+@app.get("/")
+def health_check():
+    return {"status": "ok"}
+
